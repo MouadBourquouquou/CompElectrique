@@ -6,7 +6,9 @@ import time
 import threading
 from collections import deque
 import pyttsx3  # For text-to-speech
-from playsound import playsound  # For playing sound files
+import pygame
+
+pygame.mixer.init()
 
 # Constants
 EYE_CLOSE_THRESHOLD = 0.25  # Threshold to detect if eyes are closed
@@ -47,7 +49,6 @@ def speak_alert(message):
     alert_engine.say(message)
     alert_engine.runAndWait()
 
-
 def calculate_eye_aspect_ratio(eye_points):
     """Calculate how open or closed the eyes are."""
     vertical1 = np.linalg.norm(eye_points[1] - eye_points[5])  # Distance between top and bottom of the eye
@@ -55,13 +56,11 @@ def calculate_eye_aspect_ratio(eye_points):
     horizontal = np.linalg.norm(eye_points[0] - eye_points[3])  # Distance between the sides of the eye
     return (vertical1 + vertical2) / (2 * horizontal)  # Average eye openness
 
-
 def calculate_mouth_aspect_ratio(mouth_points):
     """Calculate how open or closed the mouth is."""
     vertical = np.linalg.norm(np.array(mouth_points[2]) - np.array(mouth_points[3]))  # Distance between top and bottom of the mouth
     horizontal = np.linalg.norm(np.array(mouth_points[0]) - np.array(mouth_points[1]))  # Distance between the sides of the mouth
     return vertical / horizontal  # Mouth openness ratio
-
 
 def analyze_emotion(face_region):
     """Detect the emotion in the face region using DeepFace."""
@@ -80,7 +79,6 @@ def analyze_emotion(face_region):
     except Exception as e:
         print(f"Error in emotion analysis: {e}")  # Print errors for debugging
 
-
 def get_face_region(landmarks, frame):
     """Get the region of the face for emotion analysis."""
     xs = [lm.x * frame.shape[1] for lm in landmarks.landmark]  # X-coordinates of face landmarks
@@ -93,12 +91,14 @@ def get_face_region(landmarks, frame):
     )
 
 def play_sound_async(sound_file):
-    """Play a sound file in a separate thread."""
+    """Play a sound file in a separate thread using pygame."""
     try:
-        playsound(sound_file)
+        pygame.mixer.music.load(sound_file)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
     except Exception as e:
         print(f"Error playing sound: {e}")
-
 
 # Start video capture
 cap = cv2.VideoCapture(0)
@@ -179,8 +179,6 @@ while cap.isOpened():
             emotion_start_time = None  # Reset if no bad emotion
 
     # Trigger alerts
-    # Replace winsound.Beep with this:
-    # Replace the alert triggering logic with this:
     if alert_messages and (current_time - last_alert_time) > ALERT_COOLDOWN:
         alert = "ALERT: " + " ".join(alert_messages)
         print(alert)
@@ -201,7 +199,7 @@ while cap.isOpened():
 
     if alert_messages:
         cv2.putText(frame, "ALERT!", (50, 150),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3) 
         for i, text in enumerate(alert_messages):
             cv2.putText(frame, text, (50, 200 + i * 40),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
