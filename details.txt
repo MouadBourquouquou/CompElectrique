@@ -1,0 +1,36 @@
+Face Mesh : this a sub module from the mediapipe libirary 
+            mp.solutions is MediaPipe’s solutions module which contain pre-trained models that manipulate
+            faces hands ... , and the face_mesh is a spicification for face landmark 
+            There is other named face_detection , but it detect just the face not each point in the face
+            min_detection_confidence : from 0 to 1 , If the model detects a face with a confidence >= the value,
+                it accepts the detection.
+            min_tracking_confidence : the same as the last but when face already detected
+            max_num_faces : the number max of face will be detected
+
+speak_alert : in my code this function use the pyttsx3 libirary which used for speaking a message for more details :
+            https://srivastavayushmaan1347.medium.com/getting-started-with-python-text-to-speech-a-beginners-guide-to-pyttsx3-a105f130c420
+
+
+np.linalg.norm() : you will see this in the code many times , this is a numpy method that allow us to calculate
+                    the module of a vector np.linalg.norm()
+                    in the code you will see eyePoints[1] - eyePoints[5] or the same thing for mouth 
+                    eyePoints[1] is an array (x,y) , array - array = array and the method calculate the module 
+                for more details : https://numpy.org/doc/2.1/reference/generated/numpy.linalg.norm.html
+
+
+Landmark indices for eyes and mouth : in mediapipe the face has more 400 points, so when 
+                                     we want to detect each part we should identify points related to it
+
+
+
+To learn more about threading in python : https://www.geeksforgeeks.org/multithreading-python-set-1/
+
+
+
+pygame : is a python libirary for games but you can use the mixer.music to have custom sound (mp3)
+        for more details : https://www.tutorialspoint.com/pygame/pygame_playing_music.htm
+
+
+cv2.putText : write a text on the image 
+                cv2.putText(the frame, the text, the coordinates of the text , the font family, the font scale
+                , the color, the thickness of the text)

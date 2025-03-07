@@ -11,14 +11,14 @@ import pygame
 pygame.mixer.init()
 
 # Constants
-EYE_CLOSE_THRESHOLD = 0.25  # Threshold to detect if eyes are closed
-EYE_CLOSE_DURATION = 5  # Time (in seconds) to consider the driver as drowsy
-MOUTH_OPEN_THRESHOLD = 0.75  # Threshold to detect if the mouth is open (yawning)
+EYE_CLOSE_INTERVAL= 0.25  # Interval to detect if eyes are closed
+EYE_CLOSE_DURATION = 3  # Time (in seconds) to consider the driver as drowsy
+MOUTH_OPEN_INTERVAL = 0.75  # Interval to detect if the mouth is open (yawning)
 MOUTH_OPEN_DURATION = 3  # Time (in seconds) to consider the driver as yawning
-EMOTION_DURATION = 2  # Time (in seconds) to consider an emotion as abnormal
+EMOTION_DURATION = 3  # Time (in seconds) to consider an emotion as abnormal
 ALERT_COOLDOWN = 5  # Time (in seconds) between alerts
-FRAME_SKIP_EMOTION = 5  # Analyze emotion every 5 frames
-BAD_EMOTIONS = {"angry", "sad", "fear", "surprise"}  # Emotions to consider as bad
+FRAME_SKIP_EMOTION = 10  # Analyze emotion every 10 frames
+BAD_EMOTIONS = {"angry", "fear", "surprise"}  # Emotions to consider as bad
 
 # MediaPipe Face Mesh setup
 face_mesh = mp.solutions.face_mesh.FaceMesh(
@@ -41,22 +41,24 @@ current_emotion = "neutral"  # Tracks the current emotion
 emotion_lock = threading.Lock()  # Ensures safe updates to current_emotion
 eye_aspect_history = deque(maxlen=15)  # Stores recent eye aspect ratios
 
+
 # Initialize the text-to-speech engine
-alert_engine = pyttsx3.init()
+speakAlert = pyttsx3.init()
 
 def speak_alert(message):
     """Speak the alert message aloud."""
-    alert_engine.say(message)
-    alert_engine.runAndWait()
+    speakAlert.setProperty('rate', 125)
+    speakAlert.say(message)
+    speakAlert.runAndWait()
 
-def calculate_eye_aspect_ratio(eye_points):
+def calculate_eye_openness(eyePoints):
     """Calculate how open or closed the eyes are."""
-    vertical1 = np.linalg.norm(eye_points[1] - eye_points[5])  # Distance between top and bottom of the eye
-    vertical2 = np.linalg.norm(eye_points[2] - eye_points[4])  # Another vertical distance
-    horizontal = np.linalg.norm(eye_points[0] - eye_points[3])  # Distance between the sides of the eye
+    vertical1 = np.linalg.norm(eyePoints[1] - eyePoints[5])  # Distance between top and bottom of the eye
+    vertical2 = np.linalg.norm(eyePoints[2] - eyePoints[4])  # Another vertical distance
+    horizontal = np.linalg.norm(eyePoints[0] - eyePoints[3])  # Distance between the sides of the eye
     return (vertical1 + vertical2) / (2 * horizontal)  # Average eye openness
 
-def calculate_mouth_aspect_ratio(mouth_points):
+def calculate_mouth_openness(mouth_points):
     """Calculate how open or closed the mouth is."""
     vertical = np.linalg.norm(np.array(mouth_points[2]) - np.array(mouth_points[3]))  # Distance between top and bottom of the mouth
     horizontal = np.linalg.norm(np.array(mouth_points[0]) - np.array(mouth_points[1]))  # Distance between the sides of the mouth
@@ -90,26 +92,26 @@ def get_face_region(landmarks, frame):
         int(max(ys) - min(ys)) + 40  # Height
     )
 
-def play_sound_async(sound_file):
-    """Play a sound file in a separate thread using pygame."""
-    try:
-        pygame.mixer.music.load(sound_file)
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)
-    except Exception as e:
-        print(f"Error playing sound: {e}")
+# def play_sound_async(sound_file):
+#     """Play a sound file in a separate thread using pygame."""
+#     try:
+#         pygame.mixer.music.load(sound_file)
+#         pygame.mixer.music.play()
+#         while pygame.mixer.music.get_busy():
+#             pygame.time.Clock().tick(10)
+#     except Exception as e:
+#         print(f"Error playing sound: {e}")
 
 # Start video capture
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+video = cv2.VideoCapture(0)
+video.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+video.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 frame_count = 0
 
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
+while video.isOpened():
+    success, frame = video.read()
+    if not success:
         break
 
     frame = cv2.flip(frame, 1)  # Flip the frame for a mirror effect
@@ -117,8 +119,8 @@ while cap.isOpened():
     results = face_mesh.process(rgb_frame)  # Detect face landmarks
 
     # Initialize variables
-    avg_eye_aspect_ratio = 0.0  # Average eye openness
-    mouth_aspect_ratio = 0.0  # Mouth openness
+    eyeOpeness = 0.0  # Average eye openness
+    mouthOpeness = 0.0  # Mouth openness
     current_time = time.time()  # Current time for tracking durations
     alert_messages = []  # List of alert messages to display
 
@@ -130,11 +132,11 @@ while cap.isOpened():
             right_eye = np.array([(lm.x * frame.shape[1], lm.y * frame.shape[0])
                                  for lm in [face_landmarks.landmark[i] for i in RIGHT_EYE_INDICES]])
 
-            ear = (calculate_eye_aspect_ratio(left_eye) + calculate_eye_aspect_ratio(right_eye)) / 2
+            ear = (calculate_eye_openness(left_eye) + calculate_eye_openness(right_eye)) / 2
             eye_aspect_history.append(ear)
-            avg_eye_aspect_ratio = np.mean(eye_aspect_history)
+            eyeOpeness = np.mean(eye_aspect_history)
 
-            if avg_eye_aspect_ratio < EYE_CLOSE_THRESHOLD:  # If eyes are closed
+            if eyeOpeness < EYE_CLOSE_INTERVAL:  # If eyes are closed
                 if eye_close_start_time is None:
                     eye_close_start_time = current_time  # Start tracking eye closure
                 elif current_time - eye_close_start_time >= EYE_CLOSE_DURATION:
@@ -151,8 +153,8 @@ while cap.isOpened():
                               face_landmarks.landmark[i].y * frame.shape[0])
                              for i in MOUTH_VERTICAL_INDICES]
 
-            mouth_aspect_ratio = calculate_mouth_aspect_ratio([*mouth_corners, *mouth_vertical])
-            if mouth_aspect_ratio > MOUTH_OPEN_THRESHOLD:  # If mouth is open
+            mouthOpeness = calculate_mouth_openness([*mouth_corners, *mouth_vertical])
+            if mouthOpeness > MOUTH_OPEN_INTERVAL:  # If mouth is open
                 if mouth_open_start_time is None:
                     mouth_open_start_time = current_time  # Start tracking mouth openness
                 elif current_time - mouth_open_start_time >= MOUTH_OPEN_DURATION:
@@ -185,16 +187,16 @@ while cap.isOpened():
         
         # Choose the sound file based on the alert content
         if "Systeme Freinage Active" in alert_messages:
-            threading.Thread(target=play_sound_async, args=("./audio/fiiiiiiiq.mp3",)).start()  # Play sound.mp3 for drowsiness
+            threading.Thread(target=speak_alert, args=("You are sleeping , Activate freinage system",)).start()  # Play sound.mp3 for drowsiness
         else:
-            threading.Thread(target=play_sound_async, args=("./audio/machiBikhir.mp3",)).start()  # Play sound1.mp3 for other alerts
+            threading.Thread(target=speak_alert, args=("Your emotions dosen't look good, try to give indice!!",)).start()  # Play sound1.mp3 for other alerts
         
         last_alert_time = current_time
 
     # Display info on the frame
-    cv2.putText(frame, f"EAR: {avg_eye_aspect_ratio:.2f}", (10, 30),
+    cv2.putText(frame, f"EAR: {eyeOpeness:.2f}", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(frame, f"MAR: {mouth_aspect_ratio:.2f}", (10, 60),
+    cv2.putText(frame, f"MAR: {mouthOpeness:.2f}", (10, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
     if alert_messages:
@@ -206,8 +208,8 @@ while cap.isOpened():
 
     cv2.imshow('Driver Monitoring', frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to quit
+    if cv2.waitKey(10) & 0xFF == ord('q'):  # Press 'q' to quit
         break
 
-cap.release()
+video.release()
 cv2.destroyAllWindows()

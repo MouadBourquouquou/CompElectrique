@@ -1,2 +1,0 @@
-//pip install opencv-python deepface
-//pip install tensorflow==2.12.0
