@@ -1,0 +1,8 @@
+pip==25.0.1
+opencv-python==4.11.0.86
+numpy==2.2.3
+mediapipe
+deepface
+tf-keras==2.18.0
+pyttsx3
+pygame==2.6.1

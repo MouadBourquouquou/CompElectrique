@@ -11,8 +11,8 @@ import pygame
 pygame.mixer.init()
 
 # Constants
-EYE_CLOSE_INTERVAL= 0.25  # Interval to detect if eyes are closed
-EYE_CLOSE_DURATION = 3  # Time (in seconds) to consider the driver as drowsy
+EYE_CLOSE_INTERVAL= 0.28  # Interval to detect if eyes are closed
+EYE_CLOSE_DURATION = 2  # Time (in seconds) to consider the driver as drowsy
 MOUTH_OPEN_INTERVAL = 0.75  # Interval to detect if the mouth is open (yawning)
 MOUTH_OPEN_DURATION = 3  # Time (in seconds) to consider the driver as yawning
 EMOTION_DURATION = 3  # Time (in seconds) to consider an emotion as abnormal
